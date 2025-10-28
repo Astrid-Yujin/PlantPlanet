@@ -19,7 +19,7 @@ struct AddPlantView: View {
     @State private var customSpecies = ""
     @State private var selectedLocationIndex = 0
     @State private var customLocation = ""
-    @State private var wateringFrequency: Int = 3
+    @State private var wateringSchedule = WateringSchedule.days(3)
     @State private var notes = ""
     
     @State private var selectedPhotos: [PhotosPickerItem] = []
@@ -81,10 +81,8 @@ struct AddPlantView: View {
     }
     
     private var wateringSection: some View {
-        Section(header: Text("Watering Frequency (Required)")) {
-            Stepper(value: $wateringFrequency, in: 1...30) {
-                Text("Every \(wateringFrequency) day\(wateringFrequency > 1 ? "s" : "")")
-            }
+        Section(header: Text("Watering Schedule")) {
+            WateringScheduleEditor(schedule: $wateringSchedule)
         }
     }
     
@@ -125,6 +123,17 @@ struct AddPlantView: View {
             let trimmedLocation = customLocation.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmedLocation.isEmpty { return false }
         }
+        
+        switch wateringSchedule.type {
+         case .days:
+             if wateringSchedule.daysInterval == nil || wateringSchedule.daysInterval! < 1 {
+                 return false
+             }
+         case .weekly:
+             if wateringSchedule.weeklyDays == nil || wateringSchedule.weeklyDays!.isEmpty {
+                 return false
+             }
+         }
         
         return true
     }
@@ -178,7 +187,7 @@ struct AddPlantView: View {
             location: finalLocation.isEmpty ? "Unknown" : finalLocation,
             photoFilenames: savedPhotoFilenames,
             notes: notes,
-            wateringFrequency: wateringFrequency
+            wateringSchedule: wateringSchedule
         )
         
         modelContext.insert(newPlant)

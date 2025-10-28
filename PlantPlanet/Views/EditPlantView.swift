@@ -19,7 +19,7 @@ struct EditPlantView: View {
     @State private var customSpecies = ""
     @State private var selectedLocationIndex = 0
     @State private var customLocation = ""
-    @State private var editedWateringFrequency: Int = 3
+    @State private var editedWateringSchedule: WateringSchedule = .days(3)
     @State private var editedNotes: String = ""
     
     @State private var selectedPhotos: [PhotosPickerItem] = []
@@ -85,10 +85,8 @@ struct EditPlantView: View {
     }
     
     private var wateringSection: some View {
-        Section(header: Text("Watering Frequency")) {
-            Stepper(value: $editedWateringFrequency, in: 1...30) {
-                Text("Every \(editedWateringFrequency) day\(editedWateringFrequency > 1 ? "s" : "")")
-            }
+        Section(header: Text("Watering Schedule")) {
+            WateringScheduleEditor(schedule: $editedWateringSchedule)
         }
     }
     
@@ -137,7 +135,7 @@ struct EditPlantView: View {
     
     private func initializeFields() {
         editedName = plant.name
-        editedWateringFrequency = plant.wateringFrequency
+        editedWateringSchedule = plant.wateringSchedule
         editedNotes = plant.notes
         
         // 设置种类
@@ -184,7 +182,7 @@ struct EditPlantView: View {
     
     private func savePlant() {
         plant.name = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
-        plant.wateringFrequency = editedWateringFrequency
+        plant.wateringSchedule = editedWateringSchedule
         plant.notes = editedNotes
         
         // 处理种类
@@ -253,7 +251,7 @@ struct ExistingPhotosGrid: View {
         name: "Test Plant",
         species: "Rose",
         location: "Balcony",
-        wateringFrequency: 3
+        wateringSchedule: .days(3)
     ))
     .modelContainer(for: Plant.self, inMemory: true)
 }

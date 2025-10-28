@@ -77,7 +77,7 @@ struct PlantDetailView: View {
             InfoRow(label: "Name", value: plant.name)
             InfoRow(label: "Species", value: plant.species)
             InfoRow(label: "Location", value: plant.location)
-            InfoRow(label: "Watering", value: "Every \(plant.wateringFrequency) day\(plant.wateringFrequency > 1 ? "s" : "")")
+            InfoRow(label: "Watering", value: plant.wateringSchedule.description)
             InfoRow(label: "Created", value: plant.createdAt.formatted(date: .abbreviated, time: .omitted))
         }
         .padding()
@@ -110,7 +110,7 @@ struct PlantDetailView: View {
             name: "Test Plant",
             species: "Rose",
             location: "Balcony",
-            wateringFrequency: 3
+            wateringSchedule: .days(3)
         ))
     }
     .modelContainer(for: Plant.self, inMemory: true)

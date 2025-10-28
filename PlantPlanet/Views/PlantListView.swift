@@ -82,9 +82,9 @@ struct PlantListView: View {
                 Label("Group by Species", systemImage: grouping == .species ? "checkmark" : "")
             }
             Button {
-                grouping = .wateringFrequency
+                grouping = .wateringSchedule
             } label: {
-                Label("Group by Watering", systemImage: grouping == .wateringFrequency ? "checkmark" : "")
+                Label("Group by Watering", systemImage: grouping == .wateringSchedule ? "checkmark" : "")
             }
         } label: {
             Label("Group", systemImage: "line.3.horizontal.decrease.circle")
@@ -99,9 +99,8 @@ struct PlantListView: View {
             return plant.location.isEmpty ? "Unspecified Location" : plant.location
         case .species:
             return plant.species.isEmpty ? "Unknown Species" : plant.species
-        case .wateringFrequency:
-            let freq = plant.wateringFrequency
-            return "Water every \(freq) day\(freq > 1 ? "s" : "")"
+        case .wateringSchedule:
+            return plant.wateringSchedule.description
         }
     }
     
@@ -168,7 +167,7 @@ struct PlantRowView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "drop")
                             .font(.caption2)
-                        Text("\(plant.wateringFrequency)d")
+                        Text(plant.wateringSchedule.shortDescription)
                             .font(.caption)
                     }
                     .foregroundColor(.green)

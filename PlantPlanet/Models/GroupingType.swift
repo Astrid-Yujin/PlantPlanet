@@ -11,5 +11,5 @@ import Foundation
 enum GroupingType {
     case location
     case species
-    case wateringFrequency
+    case wateringSchedule
 }
