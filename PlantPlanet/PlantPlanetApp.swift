@@ -6,16 +6,14 @@
 //
 
 import SwiftUI
-import CoreData
+import SwiftData
 
 @main
-struct PlantPlanetApp: App {
-    let persistenceController = PersistenceController.shared
-
+struct PlantApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+            PlantListView()
         }
+        .modelContainer(for: Plant.self)
     }
 }
