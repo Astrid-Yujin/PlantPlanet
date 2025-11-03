@@ -14,6 +14,6 @@ struct PlantApp: App {
         WindowGroup {
             PlantListView()
         }
-        .modelContainer(for: Plant.self)
+        .modelContainer(for: [Plant.self, WateringLog.self])
     }
 }

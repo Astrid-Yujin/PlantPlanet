@@ -12,15 +12,25 @@ import SwiftData
 struct PlantDetailView: View {
     @Bindable var plant: Plant
     @State private var showingEditSheet = false
+    @State private var showingWateringHistory = false
+    @State private var showingAddWateringLog = false
     @State private var selectedPhotoIndex: Int = 0
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                photosCarousel
-                basicInfoSection
-                notesSection
+        ZStack(alignment: .bottom) {
+            // 主内容区域
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    photosCarousel
+                    wateringStatusSection
+                    basicInfoSection
+                    notesSection
+                    wateringHistorySection
+                }
+                .padding(.bottom, 100)
             }
+            floatingWaterButton
+
         }
         .navigationTitle(plant.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -33,6 +43,9 @@ struct PlantDetailView: View {
         }
         .sheet(isPresented: $showingEditSheet) {
             EditPlantView(plant: plant)
+        }
+        .sheet(isPresented: $showingAddWateringLog) {
+            AddWateringLogView(plant: plant)
         }
     }
     
@@ -72,6 +85,58 @@ struct PlantDetailView: View {
         }
     }
     
+    private var floatingWaterButton: some View {
+        VStack(spacing: 0) {
+            // 渐变遮罩，让按钮看起来更自然
+            LinearGradient(
+                colors: [Color.clear, Color(.systemBackground).opacity(0.95)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 30)
+            
+            VStack(spacing: 12) {
+                Button {
+                    addWateringLog()
+                } label: {
+                    HStack(spacing: 12) {
+                        Spacer()
+                        
+                        Image(systemName: wateredToday ? "checkmark.circle.fill" : "drop.fill")
+                            .font(.title3)
+                        
+                        Text(wateredToday ? "Already Watered Today" : "Water Now")
+                            .font(.headline)
+                        
+                        Spacer()
+                    }
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 24)
+                    .background(buttonBackground)
+                    .foregroundColor(buttonForeground)
+                    .cornerRadius(16)
+                    .shadow(color: wateredToday ? Color.clear : Color.black.opacity(0.15), radius: 10, y: 5)
+                }
+                .disabled(wateredToday)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: wateredToday)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            .background(Color(.systemBackground))
+        }
+    }
+    
+    private var wateringStatusSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Watering Status")
+                .font(.headline)
+                .padding(.horizontal)
+            
+            WateringStatusView(plant: plant, compact: false)
+                .padding(.horizontal)
+        }
+    }
+    
     private var basicInfoSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             InfoRow(label: "Name", value: plant.name)
@@ -99,6 +164,151 @@ struct PlantDetailView: View {
                     .cornerRadius(8)
                     .padding(.horizontal)
             }
+        }
+    }
+    
+    private var wateringHistorySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Watering History")
+                    .font(.headline)
+                
+                Spacer()
+                
+                Button {
+                    showingAddWateringLog = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundColor(.blue)
+                }
+            }
+            .padding(.horizontal)
+            
+            if plant.wateringLogs.isEmpty {
+                Text("No watering records yet")
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+            } else {
+                ForEach(plant.wateringLogs.sorted(by: { $0.date > $1.date }).prefix(5)) { log in
+                    WateringLogRow(log: log)
+                }
+                .padding(.horizontal)
+                
+                if plant.wateringLogs.count > 5 {
+                    Button("View All (\(plant.wateringLogs.count))") {
+                        showingWateringHistory = true
+                    }
+                    .padding(.horizontal)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Helper Properties
+    
+    // 检查今天是否已经浇水
+    private var wateredToday: Bool {
+        guard let lastDate = plant.lastWateringDate else {
+            return false
+        }
+        
+        let calendar = Calendar.current
+        return calendar.isDateInToday(lastDate)
+    }
+    
+    // 按钮背景色
+    private var buttonBackground: Color {
+        if wateredToday {
+            return Color(.systemGray5)
+        } else if plant.needsWatering {
+            return Color.blue
+        } else {
+            return Color.green
+        }
+    }
+    
+    // 按钮前景色
+    private var buttonForeground: Color {
+        wateredToday ? Color.secondary : Color.white
+    }
+    
+    // 下次浇水文本
+    private var nextWateringText: String {
+        guard let nextDate = plant.nextWateringDate else {
+            return "Not scheduled"
+        }
+        
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: nextDate)
+    }
+    
+    // MARK: - Actions
+    
+    private func addWateringLog() {
+        let log = WateringLog(date: Date(), notes: "")
+        plant.wateringLogs.append(log)
+    }
+}
+
+// MARK: - 浇水记录行
+struct WateringLogRow: View {
+    let log: WateringLog
+    
+    var body: some View {
+        HStack {
+            Image(systemName: "drop.fill")
+                .foregroundColor(.blue)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(formatDate(log.date))
+                    .font(.subheadline)
+                
+                if !log.notes.isEmpty {
+                    Text(log.notes)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            Text(relativeTime(log.date))
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+    
+    private func relativeTime(_ date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+        let days = Int(interval / 86400)
+        
+        if days == 0 {
+            return "Today"
+        } else if days == 1 {
+            return "Yesterday"
+        } else if days < 7 {
+            return "\(days) days ago"
+        } else if days < 30 {
+            let weeks = days / 7
+            return "\(weeks) week\(weeks > 1 ? "s" : "") ago"
+        } else {
+            let months = days / 30
+            return "\(months) month\(months > 1 ? "s" : "") ago"
         }
     }
 }

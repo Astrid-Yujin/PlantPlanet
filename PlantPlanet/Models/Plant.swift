@@ -19,9 +19,15 @@ final class Plant {
     var photoFilenames: [String]
     var notes: String
     var groupIds: [UUID]
+    
+    // 浇水计划
     private var wateringType: String
     private var wateringDaysInterval: Int?
     private var wateringWeeklyDaysRaw: [Int]?
+    
+    // 浇水记录
+    @Relationship(deleteRule: .cascade, inverse: \WateringLog.plant)
+    var wateringLogs: [WateringLog] = []
     
     var wateringSchedule: WateringSchedule {
         get {
@@ -57,6 +63,34 @@ final class Plant {
             }
         }
     }
+    
+    // 最后浇水日期
+     var lastWateringDate: Date? {
+         wateringLogs.sorted(by: { $0.date > $1.date }).first?.date
+     }
+     
+     // 下次浇水日期
+     var nextWateringDate: Date? {
+         guard let lastDate = lastWateringDate else {
+             // 如果从未浇水，返回明天
+             return Calendar.current.date(byAdding: .day, value: 1, to: Date())
+         }
+         
+         return wateringSchedule.calculateNextWateringDate(from: lastDate)
+     }
+     
+     // 是否需要浇水
+     var needsWatering: Bool {
+         guard let nextDate = nextWateringDate else { return true }
+         return Date() >= nextDate
+     }
+     
+     // 距离下次浇水的天数
+     var daysUntilNextWatering: Int? {
+         guard let nextDate = nextWateringDate else { return nil }
+         let days = Calendar.current.dateComponents([.day], from: Date(), to: nextDate).day
+         return days
+     }
     
     init(id: UUID = UUID(), 
          name: String, 

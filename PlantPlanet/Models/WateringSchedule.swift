@@ -54,6 +54,45 @@ struct WateringSchedule: Codable, Equatable {
             return "\(weeklyDays?.count ?? 0)×/wk"
         }
     }
+    
+    // 计算下次浇水日期
+    func calculateNextWateringDate(from lastDate: Date) -> Date {
+        let calendar = Calendar.current
+        
+        switch type {
+        case .days:
+            // 每N天：直接加上天数
+            let days = daysInterval ?? 3
+            return calendar.date(byAdding: .day, value: days, to: lastDate) ?? lastDate
+            
+        case .weekly:
+            // 每周固定日期：找到下一个匹配的星期几
+            guard let weeklyDays = weeklyDays, !weeklyDays.isEmpty else {
+                return calendar.date(byAdding: .day, value: 1, to: lastDate) ?? lastDate
+            }
+            
+            // 从明天开始找
+            var checkDate = calendar.date(byAdding: .day, value: 1, to: lastDate) ?? lastDate
+            
+            // 最多检查14天（两周）
+            for _ in 0..<14 {
+                let weekday = calendar.component(.weekday, from: checkDate)
+                // weekday: 1=Sunday, 2=Monday, ..., 7=Saturday
+                // 转换为 Weekday enum (0=Sunday, 1=Monday, ...)
+                let dayEnum = Weekday(rawValue: weekday - 1)
+                
+                if let dayEnum = dayEnum, weeklyDays.contains(dayEnum) {
+                    return checkDate
+                }
+                
+                // 检查下一天
+                checkDate = calendar.date(byAdding: .day, value: 1, to: checkDate) ?? checkDate
+            }
+            
+            // 如果没找到（理论上不应该发生），返回7天后
+            return calendar.date(byAdding: .day, value: 7, to: lastDate) ?? lastDate
+        }
+    }
 }
 
 // MARK: - 星期枚举

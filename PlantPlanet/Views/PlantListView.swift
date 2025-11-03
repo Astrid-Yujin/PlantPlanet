@@ -21,17 +21,22 @@ struct PlantListView: View {
     @State private var plantsToDelete: [Plant] = []
     @State private var deleteAction: (() -> Void)?
     
+    @State private var selectedPlant: Plant?
+    
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 let grouped = Dictionary(grouping: plants, by: groupingKey)
                 
                 ForEach(grouped.keys.sorted(), id: \.self) { key in
                     Section(header: Text(key)) {
                         ForEach(grouped[key] ?? []) { plant in
-                            NavigationLink(destination: PlantDetailView(plant: plant)) {
+                            Button {
+                                selectedPlant = plant
+                            } label: {
                                 PlantRowView(plant: plant)
                             }
+                            .buttonStyle(PlainButtonStyle())
                         }
                         .onDelete { offsets in
                             prepareDelete(in: grouped[key] ?? [], at: offsets)
@@ -55,6 +60,9 @@ struct PlantListView: View {
             }
             .sheet(isPresented: $showingAddSheet) {
                 AddPlantView()
+            }
+            .navigationDestination(item: $selectedPlant) { plant in
+                PlantDetailView(plant: plant)
             }
             .alert("Confirm Delete", isPresented: $showingDeleteAlert) {
                 Button("Cancel", role: .cancel) { }
@@ -156,23 +164,125 @@ struct PlantRowView: View {
                     )
             }
             
-            VStack(alignment: .leading, spacing: 4) {
+            // 左侧：植物信息
+            VStack(alignment: .leading, spacing: 6) {
+                // 植物名称
                 Text(plant.name)
                     .font(.headline)
+                    .lineLimit(1)
+                
+                // 种类
                 Text(plant.species)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                    .lineLimit(1)
                 
-                    // 浇水频率
-                    HStack(spacing: 4) {
-                        Image(systemName: "drop")
-                            .font(.caption2)
-                        Text(plant.wateringSchedule.shortDescription)
-                            .font(.caption)
-                    }
-                    .foregroundColor(.green)
+            }
+            
+            Spacer()
+            
+            // 右侧：浇水状态（紧凑显示）
+            VStack(alignment: .trailing, spacing: 6) {
+                // 浇水频率
+                HStack(spacing: 4) {
+                    Image(systemName: "drop")
+                        .font(.caption2)
+                    Text(plant.wateringSchedule.shortDescription)
+                        .font(.caption)
+                }
+                .foregroundColor(.green)
+                
+                // 状态图标和文字
+                HStack(spacing: 4) {
+                    Image(systemName: statusIcon)
+                        .font(.caption2)
+                    Text(statusText)
+                        .font(.caption)
+                }
+                .foregroundColor(statusColor)
+                
+                // 下次浇水日期
+                if let nextDate = plant.nextWateringDate {
+                    Text(formatDate(nextDate))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                
+
             }
         }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+    }
+    
+    // MARK: - Helper Properties
+    
+    private var statusIcon: String {
+        if plant.needsWatering {
+            return "exclamationmark.triangle.fill"
+        } else {
+            return "checkmark.circle.fill"
+        }
+    }
+    
+    private var statusColor: Color {
+        guard let days = plant.daysUntilNextWatering else {
+            return .orange
+        }
+        
+        if days < 0 {
+            return .red  // 过期
+        } else if days == 0 {
+            return .orange  // 今天
+        } else if days == 1 {
+            return .yellow  // 明天
+        } else {
+            return .green  // 还早
+        }
+    }
+    
+    private var statusText: String {
+        guard let days = plant.daysUntilNextWatering else {
+            return "Not set"
+        }
+        
+        if days < 0 {
+            return "Overdue"
+        } else if days == 0 {
+            return "Today"
+        } else if days == 1 {
+            return "Tomorrow"
+        } else {
+            return "In \(days) day\(days > 1 ? "s" : "")"
+        }
+    }
+    
+    // 格式化日期（紧凑格式）
+    private func formatDate(_ date: Date) -> String {
+        let calendar = Calendar.current
+        
+        // 今天
+        if calendar.isDateInToday(date) {
+            return "Today"
+        }
+        
+        // 明天
+        if calendar.isDateInTomorrow(date) {
+            return "Tomorrow"
+        }
+        
+        // 一周内：只显示星期几
+        let daysAway = calendar.dateComponents([.day], from: Date(), to: date).day ?? 0
+        if abs(daysAway) < 7 {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEE"  // Mon, Tue, Wed
+            return formatter.string(from: date)
+        }
+        
+        // 超过一周：显示简短日期
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"  // Oct 28
+        return formatter.string(from: date)
     }
 }
 
