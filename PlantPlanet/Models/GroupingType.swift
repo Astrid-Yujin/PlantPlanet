@@ -9,6 +9,7 @@
 import Foundation
 
 enum GroupingType {
+    case wateringGroup
     case location
     case species
     case wateringSchedule

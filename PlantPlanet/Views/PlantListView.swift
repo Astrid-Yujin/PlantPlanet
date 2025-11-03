@@ -5,7 +5,6 @@
 //  Created by Yujin Wang on 10/28/25.
 //
 
-
 import SwiftUI
 import SwiftData
 
@@ -14,7 +13,7 @@ struct PlantListView: View {
     @Query(sort: \Plant.createdAt, order: .reverse) private var plants: [Plant]
     
     @State private var showingAddSheet = false
-    @State private var grouping: GroupingType = .location
+    @State private var grouping: GroupingType = .wateringGroup  // 默认改为 wateringGroup
     
     // 删除确认对话框相关状态
     @State private var showingDeleteAlert = false
@@ -26,22 +25,11 @@ struct PlantListView: View {
     var body: some View {
         NavigationStack {
             List {
-                let grouped = Dictionary(grouping: plants, by: groupingKey)
-                
-                ForEach(grouped.keys.sorted(), id: \.self) { key in
-                    Section(header: Text(key)) {
-                        ForEach(grouped[key] ?? []) { plant in
-                            Button {
-                                selectedPlant = plant
-                            } label: {
-                                PlantRowView(plant: plant)
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                        }
-                        .onDelete { offsets in
-                            prepareDelete(in: grouped[key] ?? [], at: offsets)
-                        }
-                    }
+                // 特殊处理 wateringGroup 分组
+                if grouping == .wateringGroup {
+                    wateringGroupView
+                } else {
+                    regularGroupView
                 }
             }
             .navigationTitle("My Plants")
@@ -67,7 +55,7 @@ struct PlantListView: View {
             .alert("Confirm Delete", isPresented: $showingDeleteAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Delete", role: .destructive) {
-                    deleteAction?()  // 执行删除
+                    deleteAction?()
                 }
             } message: {
                 Text(deleteMessage)
@@ -77,8 +65,76 @@ struct PlantListView: View {
     
     // MARK: - Subviews
     
+    // 浇水分组视图（按紧急程度排序）
+    private var wateringGroupView: some View {
+        ForEach(groupedByWateringGroup, id: \.group) { item in
+            Section {
+                ForEach(item.plants) { plant in
+                    Button {
+                        selectedPlant = plant
+                    } label: {
+                        PlantRowView(plant: plant)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .onDelete { offsets in
+                    prepareDelete(in: item.plants, at: offsets)
+                }
+            } header: {
+                // 带颜色和图标的分组标题
+                HStack(spacing: 8) {
+                    Image(systemName: item.group.icon)
+                        .foregroundColor(item.group.color)
+                        .font(.subheadline)
+                    
+                    Text(item.group.title)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    
+                    Spacer()
+                    
+                    Text("\(item.plants.count)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color(.systemGray5))
+                        .cornerRadius(8)
+                }
+            }
+        }
+    }
+    
+    // 常规分组视图（保持原有逻辑）
+    private var regularGroupView: some View {
+        ForEach(regularGroupedPlants.keys.sorted(), id: \.self) { key in
+            Section(header: Text(key)) {
+                ForEach(regularGroupedPlants[key] ?? []) { plant in
+                    Button {
+                        selectedPlant = plant
+                    } label: {
+                        PlantRowView(plant: plant)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .onDelete { offsets in
+                    prepareDelete(in: regularGroupedPlants[key] ?? [], at: offsets)
+                }
+            }
+        }
+    }
+    
     private var groupingMenu: some View {
         Menu {
+            // 添加浇水分组选项
+            Button {
+                grouping = .wateringGroup
+            } label: {
+                Label("Group by Watering", systemImage: grouping == .wateringGroup ? "checkmark" : "")
+            }
+            
+            Divider()
+            
             Button {
                 grouping = .location
             } label: {
@@ -92,17 +148,56 @@ struct PlantListView: View {
             Button {
                 grouping = .wateringSchedule
             } label: {
-                Label("Group by Watering", systemImage: grouping == .wateringSchedule ? "checkmark" : "")
+                Label("Group by Schedule", systemImage: grouping == .wateringSchedule ? "checkmark" : "")
             }
         } label: {
             Label("Group", systemImage: "line.3.horizontal.decrease.circle")
         }
     }
     
+    // MARK: - Computed Properties
+    
+    // 浇水分组的计算属性
+    private var groupedByWateringGroup: [(group: WateringGroup, plants: [Plant])] {
+        // 按分组分类
+        var grouped: [WateringGroup: [Plant]] = [:]
+        for group in WateringGroup.allCases {
+            grouped[group] = []
+        }
+        
+        for plant in plants {
+            grouped[plant.wateringGroup]?.append(plant)
+        }
+        
+        // 在每个分组内按天数排序（最近的在前）
+        for group in WateringGroup.allCases {
+            grouped[group]?.sort {
+                let days1 = $0.daysUntilNextWatering ?? -999
+                let days2 = $1.daysUntilNextWatering ?? -999
+                return days1 < days2
+            }
+        }
+        
+        // 只返回非空分组，按紧急程度排序
+        return WateringGroup.allCases.compactMap { group in
+            if let plants = grouped[group], !plants.isEmpty {
+                return (group: group, plants: plants)
+            }
+            return nil
+        }
+    }
+    
+    // 常规分组的计算属性
+    private var regularGroupedPlants: [String: [Plant]] {
+        Dictionary(grouping: plants, by: groupingKey)
+    }
+    
     // MARK: - Helper Methods
     
     private func groupingKey(for plant: Plant) -> String {
         switch grouping {
+        case .wateringGroup:
+            return plant.wateringGroup.title
         case .location:
             return plant.location.isEmpty ? "Unspecified Location" : plant.location
         case .species:
@@ -113,31 +208,31 @@ struct PlantListView: View {
     }
     
     // 准备删除（显示确认对话框）
-     private func prepareDelete(in plants: [Plant], at offsets: IndexSet) {
-         // 收集要删除的植物
-         plantsToDelete = offsets.map { plants[$0] }
-         
-         // 保存删除操作
-         deleteAction = {
-             for plant in plantsToDelete {
-                 PhotoManager.shared.deletePhotos(plant.photoFilenames)
-                 modelContext.delete(plant)
-             }
-             plantsToDelete.removeAll()
-         }
-         
-         // 显示确认对话框
-         showingDeleteAlert = true
-     }
-     
-     // 生成删除确认消息
-     private var deleteMessage: String {
-         if plantsToDelete.count == 1 {
-             return "Are you sure you want to delete \"\(plantsToDelete[0].name)\"? This action cannot be undone."
-         } else {
-             return "Are you sure you want to delete \(plantsToDelete.count) plants? This action cannot be undone."
-         }
-     }
+    private func prepareDelete(in plants: [Plant], at offsets: IndexSet) {
+        // 收集要删除的植物
+        plantsToDelete = offsets.map { plants[$0] }
+        
+        // 保存删除操作
+        deleteAction = {
+            for plant in plantsToDelete {
+                PhotoManager.shared.deletePhotos(plant.photoFilenames)
+                modelContext.delete(plant)
+            }
+            plantsToDelete.removeAll()
+        }
+        
+        // 显示确认对话框
+        showingDeleteAlert = true
+    }
+    
+    // 生成删除确认消息
+    private var deleteMessage: String {
+        if plantsToDelete.count == 1 {
+            return "Are you sure you want to delete \"\(plantsToDelete[0].name)\"? This action cannot be undone."
+        } else {
+            return "Are you sure you want to delete \(plantsToDelete.count) plants? This action cannot be undone."
+        }
+    }
 }
 
 // MARK: - Plant Row View
@@ -176,7 +271,6 @@ struct PlantRowView: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
-                
             }
             
             Spacer()
@@ -207,8 +301,6 @@ struct PlantRowView: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
-                
-
             }
         }
         .padding(.vertical, 8)
@@ -286,8 +378,44 @@ struct PlantRowView: View {
     }
 }
 
-// MARK: - Preview
+// MARK: - Preview Helper
+
+private struct PlantListPreview: View {
+    @State private var container: ModelContainer = {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try! ModelContainer(for: Plant.self, configurations: config)
+        let context = container.mainContext
+        
+        // 创建示例数据
+        let plants = [
+            ("Rose", "Rosa rubiginosa", "Garden", WateringSchedule.days(3), 5),
+            ("Fern", "Nephrolepis", "Living Room", WateringSchedule.days(2), 2),
+            ("Succulent", "Echeveria", "Bedroom", WateringSchedule.days(5), 4),
+            ("Peace Lily", "Spathiphyllum", "Office", WateringSchedule.weekly([Weekday.monday, Weekday.thursday]), 4),
+            ("Snake Plant", "Sansevieria", "Bathroom", WateringSchedule.days(1), 4)
+        ]
+        
+        for (name, species, location, schedule, daysAgo) in plants {
+            let plant = Plant(name: name, species: species, location: location, wateringSchedule: schedule)
+            plant.photoFilenames = []
+            
+            if let date = Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date()) {
+                plant.wateringLogs.append(WateringLog(date: date, notes: "Sample"))
+            }
+            
+            context.insert(plant)
+        }
+        
+        try? context.save()  // 别忘了保存
+        return container
+    }()
+    
+    var body: some View {
+        PlantListView()
+            .modelContainer(container)
+    }
+}
+
 #Preview {
-    PlantListView()
-        .modelContainer(for: Plant.self, inMemory: true)
+    PlantListPreview()
 }
