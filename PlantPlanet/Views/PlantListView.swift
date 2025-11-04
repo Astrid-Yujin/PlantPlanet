@@ -60,16 +60,19 @@ struct PlantListView: View {
                     Button {
                         selectedPlant = plant
                     } label: {
-                        PlantRowView(plant: plant)
+                        PlantRowView(plant: plant, grouping: grouping)
                     }
                     .buttonStyle(PlainButtonStyle())
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button {
-                            waterPlant(plant)
-                        } label: {
-                            Label("Water", systemImage: "drop.fill")
+                        // 在 overdue 和 today 组显示左滑浇水功能
+                        if item.group == .overdue || item.group == .today {
+                            Button {
+                                waterPlant(plant)
+                            } label: {
+                                Label("Water", systemImage: "drop.fill")
+                            }
+                            .tint(.blue)
                         }
-                        .tint(.blue)
                     }
                 }
             } header: {
@@ -85,13 +88,35 @@ struct PlantListView: View {
                     
                     Spacer()
                     
-                    Text("\(item.plants.count)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color(.systemGray5))
-                        .cornerRadius(8)
+                    // 在 overdue 和 today 组显示快速浇水按钮
+                    if item.group == .overdue || item.group == .today {
+                        Button {
+                            waterAllPlantsInGroup(item.plants)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "drop.fill")
+                                    .font(.caption2)
+                                Text("Water")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.blue.opacity(0.1))
+                            .foregroundColor(.blue)
+                            .cornerRadius(8)
+                        }
+                        .disabled(item.plants.isEmpty)
+                    } else {
+                        // 其他组显示植物数量
+                        Text("\(item.plants.count)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color(.systemGray5))
+                            .cornerRadius(8)
+                    }
                 }
             }
         }
@@ -105,7 +130,7 @@ struct PlantListView: View {
                     Button {
                         selectedPlant = plant
                     } label: {
-                        PlantRowView(plant: plant)
+                        PlantRowView(plant: plant, grouping: grouping)
                     }
                     .buttonStyle(PlainButtonStyle())
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -212,11 +237,25 @@ struct PlantListView: View {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
     }
+    
+    private func waterAllPlantsInGroup(_ plants: [Plant]) {
+        let currentDate = Date()
+        
+        for plant in plants {
+            let log = WateringLog(date: currentDate, notes: "Batch watering")
+            plant.wateringLogs.append(log)
+        }
+        
+        // 添加触觉反馈
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+    }
 }
 
 // MARK: - Plant Row View
 struct PlantRowView: View {
     let plant: Plant
+    let grouping: GroupingType
     
     var body: some View {
         HStack(spacing: 12) {
@@ -254,7 +293,7 @@ struct PlantRowView: View {
             
             Spacer()
             
-            // 右侧：浇水状态（紧凑显示）
+            // 其他分组显示浇水状态（紧凑显示）
             VStack(alignment: .trailing, spacing: 6) {
                 // 浇水频率
                 HStack(spacing: 4) {
@@ -264,21 +303,26 @@ struct PlantRowView: View {
                         .font(.caption)
                 }
                 .foregroundColor(.green)
-                
-                // 状态图标和文字
-                HStack(spacing: 4) {
-                    Image(systemName: statusIcon)
-                        .font(.caption2)
-                    Text(statusText)
-                        .font(.caption)
-                }
-                .foregroundColor(statusColor)
-                
-                // 下次浇水日期
-                if let nextDate = plant.nextWateringDate {
-                    Text(formatDate(nextDate))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+            
+                if grouping == .wateringGroup {
+                    // 状态图标和文字
+                    HStack(spacing: 4) {
+                        Image(systemName: statusIcon)
+                            .font(.caption2)
+                        Text(statusText)
+                            .font(.caption)
+                    }
+                    .foregroundColor(statusColor)
+                    
+                    // 下次浇水日期
+                    if let nextDate = plant.nextWateringDate {
+                        Text(formatDate(nextDate))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                } else {
+                    EmptyView()
                 }
             }
         }

@@ -82,13 +82,23 @@ final class Plant {
      // 是否需要浇水
      var needsWatering: Bool {
          guard let nextDate = nextWateringDate else { return true }
+         
+         // 如果今天已经浇过水了，则认为不需要浇水
+         let calendar = Calendar.current
+         if let lastDate = lastWateringDate,
+            calendar.isDateInToday(lastDate) {
+             return false
+         }
+         
          return Date() >= nextDate
      }
      
      // 距离下次浇水的天数
      var daysUntilNextWatering: Int? {
          guard let nextDate = nextWateringDate else { return nil }
-         let days = Calendar.current.dateComponents([.day], from: Date(), to: nextDate).day
+         
+         let calendar = Calendar.current
+         let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: Date()), to: calendar.startOfDay(for: nextDate)).day
          return days
      }
     
