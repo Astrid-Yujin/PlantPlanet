@@ -152,7 +152,16 @@ struct PlantListView: View {
             Button {
                 grouping = .wateringGroup
             } label: {
-                Label("Group by Watering", systemImage: grouping == .wateringGroup ? "checkmark" : "")
+                HStack {
+                    Image(systemName: "drop.circle")
+                        .frame(width: 20, alignment: .leading)
+                    Text("Group by Watering")
+                    Spacer()
+                    if grouping == .wateringGroup {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.blue)
+                    }
+                }
             }
             
             Divider()
@@ -160,20 +169,76 @@ struct PlantListView: View {
             Button {
                 grouping = .location
             } label: {
-                Label("Group by Location", systemImage: grouping == .location ? "checkmark" : "")
+                HStack {
+                    Image(systemName: "location.circle")
+                        .frame(width: 20, alignment: .leading)
+                    Text("Group by Location")
+                    Spacer()
+                    if grouping == .location {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.blue)
+                    }
+                }
             }
+            
             Button {
                 grouping = .species
             } label: {
-                Label("Group by Species", systemImage: grouping == .species ? "checkmark" : "")
+                HStack {
+                    Image(systemName: "leaf.circle")
+                        .frame(width: 20, alignment: .leading)
+                    Text("Group by Species")
+                    Spacer()
+                    if grouping == .species {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.blue)
+                    }
+                }
             }
+            
             Button {
                 grouping = .wateringSchedule
             } label: {
-                Label("Group by Schedule", systemImage: grouping == .wateringSchedule ? "checkmark" : "")
+                HStack {
+                    Image(systemName: "calendar.circle")
+                        .frame(width: 20, alignment: .leading)
+                    Text("Group by Schedule")
+                    Spacer()
+                    if grouping == .wateringSchedule {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.blue)
+                    }
+                }
             }
         } label: {
-            Label("Group", systemImage: "line.3.horizontal.decrease.circle")
+            // 显示当前选择的分组方式
+            HStack(spacing: 6) {
+                Image(systemName: currentGroupIcon)
+                Text(currentGroupTitle)
+                    .font(.caption)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    
+    // 当前分组的标题和图标
+    private var currentGroupTitle: String {
+        switch grouping {
+        case .wateringGroup: return "Watering"
+        case .location: return "Location"
+        case .species: return "Species"
+        case .wateringSchedule: return "Schedule"
+        }
+    }
+    
+    private var currentGroupIcon: String {
+        switch grouping {
+        case .wateringGroup: return "drop.circle"
+        case .location: return "location.circle"
+        case .species: return "leaf.circle"
+        case .wateringSchedule: return "calendar.circle"
         }
     }
     
