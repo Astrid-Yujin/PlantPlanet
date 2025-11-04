@@ -11,10 +11,14 @@ import SwiftData
 
 struct PlantDetailView: View {
     @Bindable var plant: Plant
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    
     @State private var showingEditSheet = false
     @State private var showingWateringHistory = false
     @State private var showingAddWateringLog = false
     @State private var selectedPhotoIndex: Int = 0
+    
     
     var body: some View {
         ZStack(alignment: .bottom) {

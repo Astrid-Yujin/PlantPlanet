@@ -13,6 +13,9 @@ import SwiftData
 struct EditPlantView: View {
     @Bindable var plant: Plant
     @Environment(\.dismiss) var dismiss
+    @Environment(\.modelContext) private var modelContext
+    
+    @State private var showingDeleteAlert = false
     
     @State private var editedName: String = ""
     @State private var selectedSpeciesIndex = 0
@@ -34,6 +37,23 @@ struct EditPlantView: View {
                 wateringSection
                 photosSection
                 notesSection
+               
+                Button(role: .destructive) {
+                    showingDeleteAlert = true
+                } label: {
+                    HStack {
+                        Image(systemName: "trash.fill")
+                        Text("Delete Plant")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.red.opacity(0.1))
+                    .foregroundColor(.red)
+                    .cornerRadius(12)
+                }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
             }
             .navigationTitle("Edit Plant")
             .navigationBarTitleDisplayMode(.inline)
@@ -52,6 +72,14 @@ struct EditPlantView: View {
             }
             .onAppear {
                 initializeFields()
+            }
+            .alert("Delete Plant", isPresented: $showingDeleteAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete", role: .destructive) {
+                    deletePlant()
+                }
+            } message: {
+                Text("Are you sure you want to delete \"\(plant.name)\"? This will also delete all watering records and photos. This action cannot be undone.")
             }
         }
     }
@@ -207,6 +235,18 @@ struct EditPlantView: View {
             plant.location = locationOptions[selectedLocationIndex]
         }
         
+        dismiss()
+    }
+    
+    
+    private func deletePlant() {
+        // 删除照片文件
+        PhotoManager.shared.deletePhotos(plant.photoFilenames)
+        
+        // 删除植物数据
+        modelContext.delete(plant)
+        
+        // 关闭编辑页面（会自动返回列表）
         dismiss()
     }
 }

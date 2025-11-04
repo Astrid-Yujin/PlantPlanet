@@ -15,11 +15,6 @@ struct PlantListView: View {
     @State private var showingAddSheet = false
     @State private var grouping: GroupingType = .wateringGroup  // 默认改为 wateringGroup
     
-    // 删除确认对话框相关状态
-    @State private var showingDeleteAlert = false
-    @State private var plantsToDelete: [Plant] = []
-    @State private var deleteAction: (() -> Void)?
-    
     @State private var selectedPlant: Plant?
     
     var body: some View {
@@ -52,14 +47,6 @@ struct PlantListView: View {
             .navigationDestination(item: $selectedPlant) { plant in
                 PlantDetailView(plant: plant)
             }
-            .alert("Confirm Delete", isPresented: $showingDeleteAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete", role: .destructive) {
-                    deleteAction?()
-                }
-            } message: {
-                Text(deleteMessage)
-            }
         }
     }
     
@@ -76,9 +63,14 @@ struct PlantListView: View {
                         PlantRowView(plant: plant)
                     }
                     .buttonStyle(PlainButtonStyle())
-                }
-                .onDelete { offsets in
-                    prepareDelete(in: item.plants, at: offsets)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button {
+                            waterPlant(plant)
+                        } label: {
+                            Label("Water", systemImage: "drop.fill")
+                        }
+                        .tint(.blue)
+                    }
                 }
             } header: {
                 // 带颜色和图标的分组标题
@@ -105,7 +97,7 @@ struct PlantListView: View {
         }
     }
     
-    // 常规分组视图（保持原有逻辑）
+    // 常规分组视图
     private var regularGroupView: some View {
         ForEach(regularGroupedPlants.keys.sorted(), id: \.self) { key in
             Section(header: Text(key)) {
@@ -116,9 +108,14 @@ struct PlantListView: View {
                         PlantRowView(plant: plant)
                     }
                     .buttonStyle(PlainButtonStyle())
-                }
-                .onDelete { offsets in
-                    prepareDelete(in: regularGroupedPlants[key] ?? [], at: offsets)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button {
+                            waterPlant(plant)
+                        } label: {
+                            Label("Water", systemImage: "drop.fill")
+                        }
+                        .tint(.blue)
+                    }
                 }
             }
         }
@@ -207,31 +204,13 @@ struct PlantListView: View {
         }
     }
     
-    // 准备删除（显示确认对话框）
-    private func prepareDelete(in plants: [Plant], at offsets: IndexSet) {
-        // 收集要删除的植物
-        plantsToDelete = offsets.map { plants[$0] }
+    private func waterPlant(_ plant: Plant) {
+        let log = WateringLog(date: Date(), notes: "")
+        plant.wateringLogs.append(log)
         
-        // 保存删除操作
-        deleteAction = {
-            for plant in plantsToDelete {
-                PhotoManager.shared.deletePhotos(plant.photoFilenames)
-                modelContext.delete(plant)
-            }
-            plantsToDelete.removeAll()
-        }
-        
-        // 显示确认对话框
-        showingDeleteAlert = true
-    }
-    
-    // 生成删除确认消息
-    private var deleteMessage: String {
-        if plantsToDelete.count == 1 {
-            return "Are you sure you want to delete \"\(plantsToDelete[0].name)\"? This action cannot be undone."
-        } else {
-            return "Are you sure you want to delete \(plantsToDelete.count) plants? This action cannot be undone."
-        }
+        // 可选：添加触觉反馈
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
     }
 }
 
