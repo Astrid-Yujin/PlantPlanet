@@ -53,7 +53,7 @@ struct PlantListView: View {
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
-                AddPlantView()
+                PlantFormView(mode: .add)
             }
             .sheet(isPresented: $showingLocationManagement) {
                 LocationManagementView()

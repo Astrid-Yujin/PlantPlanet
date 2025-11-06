@@ -45,9 +45,9 @@ struct PlantDetailView: View {
                 }
             }
         }
-        .sheet(isPresented: $showingEditSheet) {
-            EditPlantView(plant: plant)
-        }
+            .sheet(isPresented: $showingEditSheet) {
+                PlantFormView(mode: .edit(plant))
+            }
         .sheet(isPresented: $showingAddWateringLog) {
             AddWateringLogView(plant: plant)
         }
