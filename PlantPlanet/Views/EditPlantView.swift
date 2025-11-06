@@ -15,6 +15,9 @@ struct EditPlantView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.modelContext) private var modelContext
     
+    @Query private var allLocations: [Location]
+    @Query private var allPlants: [Plant]
+    
     @State private var showingDeleteAlert = false
     
     @State private var editedName: String = ""
@@ -28,7 +31,26 @@ struct EditPlantView: View {
     @State private var selectedPhotos: [PhotosPickerItem] = []
     
     @State private var speciesOptions: [String] = ["Rose", "Hydrangea", "Pothos", "Azalea", "Camellia", "Other"]
-    @State private var locationOptions: [String] = ["Living Room", "Balcony", "Bedroom", "Add New"]
+    
+    // 按照和 LocationManagementView 相同的排序逻辑
+    private var sortedLocations: [Location] {
+        return allLocations.sorted { location1, location2 in
+            // First by starred status (starred first)
+            if location1.isStarred != location2.isStarred {
+                return location1.isStarred && !location2.isStarred
+            }
+            
+            // Then by creation date
+            return location1.createdAt < location2.createdAt
+        }
+    }
+    
+    // 计算属性：位置选项
+    private var locationOptions: [String] {
+        var options = sortedLocations.map { $0.name }
+        options.append("Add New")
+        return options
+    }
     
     var body: some View {
         NavigationView {
@@ -185,10 +207,18 @@ struct EditPlantView: View {
             selectedLocationIndex = index
         } else {
             if !plant.location.isEmpty && plant.location != "Unknown" {
-                if !locationOptions.contains(plant.location) {
-                    locationOptions.insert(plant.location, at: locationOptions.count - 1)
+                // 如果植物的位置不在列表中，检查是否存在于数据库中
+                if allLocations.first(where: { $0.name == plant.location }) != nil {
+                    // 位置存在于数据库但不在当前排序列表中，创建新的位置到数据库
+                    selectedLocationIndex = locationOptions.firstIndex(of: plant.location) ?? (locationOptions.count - 1)
+                } else {
+                    // 位置不存在，创建新位置
+                    let newLocation = Location(name: plant.location)
+                    modelContext.insert(newLocation)
+                    // 选择"Add New"选项，并设置自定义位置
+                    selectedLocationIndex = locationOptions.count - 1
+                    customLocation = plant.location
                 }
-                selectedLocationIndex = locationOptions.firstIndex(of: plant.location) ?? 0
             } else {
                 selectedLocationIndex = locationOptions.count - 1
             }
@@ -228,8 +258,14 @@ struct EditPlantView: View {
         if locationOptions[selectedLocationIndex] == "Add New" {
             let finalLocation = customLocation.trimmingCharacters(in: .whitespacesAndNewlines)
             plant.location = finalLocation.isEmpty ? "Unknown" : finalLocation
-            if !finalLocation.isEmpty && !locationOptions.contains(finalLocation) {
-                locationOptions.insert(finalLocation, at: locationOptions.count - 1)
+            if !finalLocation.isEmpty {
+                // 检查位置是否已存在于数据库
+                let existingLocation = allLocations.first { $0.name.lowercased() == finalLocation.lowercased() }
+                if existingLocation == nil {
+                    // 创建新位置并保存到数据库
+                    let newLocation = Location(name: finalLocation)
+                    modelContext.insert(newLocation)
+                }
             }
         } else {
             plant.location = locationOptions[selectedLocationIndex]

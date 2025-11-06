@@ -14,6 +14,29 @@ struct AddPlantView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) var dismiss
     
+    @Query private var allLocations: [Location]
+    @Query private var allPlants: [Plant]
+    
+    // 按照和 LocationManagementView 相同的排序逻辑
+    private var sortedLocations: [Location] {
+        return allLocations.sorted { location1, location2 in
+            // First by starred status (starred first)
+            if location1.isStarred != location2.isStarred {
+                return location1.isStarred && !location2.isStarred
+            }
+            
+            // Then by plant count (higher count first)
+            let count1 = allPlants.filter { $0.location == location1.name }.count
+            let count2 = allPlants.filter { $0.location == location2.name }.count
+            if count1 != count2 {
+                return count1 > count2
+            }
+            
+            // Finally alphabetically (case insensitive)
+            return location1.name.localizedCaseInsensitiveCompare(location2.name) == .orderedAscending
+        }
+    }
+    
     @State private var name = ""
     @State private var selectedSpeciesIndex = 0
     @State private var customSpecies = ""
@@ -26,7 +49,20 @@ struct AddPlantView: View {
     @State private var photoImages: [UIImage] = []
     
     @State private var speciesOptions: [String] = ["Rose", "Hydrangea", "Pothos", "Azalea", "Camellia", "Other"]
-    @State private var locationOptions: [String] = ["Living Room", "Balcony", "Bedroom", "Add New"]
+    
+    // 计算属性：位置选项
+    private var locationOptions: [String] {
+        var options = sortedLocations.map { $0.name }
+        options.append("Add New")
+        return options
+    }
+    
+    // 确保在视图加载时创建默认位置
+    private func ensureDefaultLocationsExist() {
+        if allLocations.isEmpty {
+            LocationManager.createDefaultLocations(context: modelContext)
+        }
+    }
     
     var body: some View {
         NavigationView {
@@ -48,6 +84,9 @@ struct AddPlantView: View {
                     }
                     .disabled(!isValid)
                 }
+            }
+            .onAppear {
+                ensureDefaultLocationsExist()
             }
         }
     }
@@ -74,7 +113,7 @@ struct AddPlantView: View {
                 }
             }
             
-            if locationOptions[selectedLocationIndex] == "Add New" {
+            if locationOptions.indices.contains(selectedLocationIndex) && locationOptions[selectedLocationIndex] == "Add New" {
                 TextField("Enter new location", text: $customLocation)
             }
         }
@@ -114,12 +153,12 @@ struct AddPlantView: View {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedName.isEmpty { return false }
         
-        if speciesOptions[selectedSpeciesIndex] == "Other" {
+        if speciesOptions.indices.contains(selectedSpeciesIndex) && speciesOptions[selectedSpeciesIndex] == "Other" {
             let trimmedSpecies = customSpecies.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmedSpecies.isEmpty { return false }
         }
         
-        if locationOptions[selectedLocationIndex] == "Add New" {
+        if locationOptions.indices.contains(selectedLocationIndex) && locationOptions[selectedLocationIndex] == "Add New" {
             let trimmedLocation = customLocation.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmedLocation.isEmpty { return false }
         }
@@ -154,23 +193,33 @@ struct AddPlantView: View {
     
     private func savePlant() {
         var finalSpecies: String
-        if speciesOptions[selectedSpeciesIndex] == "Other" {
+        if speciesOptions.indices.contains(selectedSpeciesIndex) && speciesOptions[selectedSpeciesIndex] == "Other" {
             finalSpecies = customSpecies.trimmingCharacters(in: .whitespacesAndNewlines)
             if !finalSpecies.isEmpty && !speciesOptions.contains(finalSpecies) {
                 speciesOptions.insert(finalSpecies, at: speciesOptions.count - 1)
             }
-        } else {
+        } else if speciesOptions.indices.contains(selectedSpeciesIndex) {
             finalSpecies = speciesOptions[selectedSpeciesIndex]
+        } else {
+            finalSpecies = "Unknown"
         }
         
         var finalLocation: String
-        if locationOptions[selectedLocationIndex] == "Add New" {
+        if locationOptions.indices.contains(selectedLocationIndex) && locationOptions[selectedLocationIndex] == "Add New" {
             finalLocation = customLocation.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !finalLocation.isEmpty && !locationOptions.contains(finalLocation) {
-                locationOptions.insert(finalLocation, at: locationOptions.count - 1)
+            if !finalLocation.isEmpty {
+                // 检查位置是否已存在
+                let existingLocation = allLocations.first { $0.name.lowercased() == finalLocation.lowercased() }
+                if existingLocation == nil {
+                    // 创建新位置并保存到数据库
+                    let newLocation = Location(name: finalLocation)
+                    modelContext.insert(newLocation)
+                }
             }
-        } else {
+        } else if locationOptions.indices.contains(selectedLocationIndex) {
             finalLocation = locationOptions[selectedLocationIndex]
+        } else {
+            finalLocation = "Unknown"
         }
         
         // 保存照片
@@ -230,6 +279,14 @@ struct PhotoPreviewGrid: View {
 
 // MARK: - Preview
 #Preview {
-    AddPlantView()
-        .modelContainer(for: Plant.self, inMemory: true)
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: Plant.self, Location.self, WateringLog.self, configurations: config)
+    let context = container.mainContext
+    
+    // 创建默认位置
+    LocationManager.createDefaultLocations(context: context)
+    try? context.save()
+    
+    return AddPlantView()
+        .modelContainer(container)
 }

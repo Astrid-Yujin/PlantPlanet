@@ -13,6 +13,7 @@ struct PlantListView: View {
     @Query(sort: \Plant.createdAt, order: .reverse) private var plants: [Plant]
     
     @State private var showingAddSheet = false
+    @State private var showingLocationManagement = false
     @State private var grouping: GroupingType = .wateringGroup  // 默认改为 wateringGroup
     
     @State private var selectedPlant: Plant?
@@ -34,15 +35,28 @@ struct PlantListView: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        showingAddSheet = true
+                    Menu {
+                        Button {
+                            showingAddSheet = true
+                        } label: {
+                            Label("Add Plant", systemImage: "plus")
+                        }
+                        
+                        Button {
+                            showingLocationManagement = true
+                        } label: {
+                            Label("Manage Locations", systemImage: "location.circle")
+                        }
                     } label: {
-                        Image(systemName: "plus")
+                        Image(systemName: "ellipsis.circle")
                     }
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
                 AddPlantView()
+            }
+            .sheet(isPresented: $showingLocationManagement) {
+                LocationManagementView()
             }
             .navigationDestination(item: $selectedPlant) { plant in
                 PlantDetailView(plant: plant)
@@ -388,7 +402,7 @@ struct PlantRowView: View {
                         }
                     }
                     
-                    // 状态图标和文字（包含了下次浇水的时间信息）
+                    // 状态图标和文字
                     HStack(spacing: 4) {
                         Image(systemName: statusIcon)
                             .font(.caption2)
@@ -396,7 +410,7 @@ struct PlantRowView: View {
                             .font(.caption)
                     }
                     .foregroundColor(statusColor)
-                    
+                
                 } else {
                     // 其他分组模式：显示种类和浇水频率
                     Text(plant.species)
@@ -494,15 +508,18 @@ struct PlantRowView: View {
 private struct PlantListPreview: View {
     @State private var container: ModelContainer = {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: Plant.self, configurations: config)
+        let container = try! ModelContainer(for: Plant.self, Location.self, WateringLog.self, configurations: config)
         let context = container.mainContext
+        
+        // 创建默认位置
+        LocationManager.createDefaultLocations(context: context)
         
         // 创建示例数据 - 与 PlantApp 中的数据保持一致
         let plants = [
             ("月季", "Rosa", "Balcony", WateringSchedule.days(1), 1),
             ("龟背竹", "Monstera", "Balcony", WateringSchedule.days(7), 12),
-            ("山茶花", "Camellia", "Reading Room", WateringSchedule.days(3), 2),
-            ("杜鹃花", "Rhododendron", "Dining Room", WateringSchedule.days(5), 0)
+            ("山茶花", "Camellia", "Living Room", WateringSchedule.days(3), 2),
+            ("杜鹃花", "Rhododendron", "Living Room", WateringSchedule.days(5), 0)
         ]
         
         for (name, species, location, schedule, daysAgo) in plants {

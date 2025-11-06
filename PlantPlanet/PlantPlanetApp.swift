@@ -14,7 +14,7 @@ struct PlantApp: App {
         WindowGroup {
             PlantListView()
         }
-        .modelContainer(for: [Plant.self, WateringLog.self])
+        .modelContainer(for: [Plant.self, WateringLog.self, Location.self])
     }
 }
 
@@ -35,14 +35,17 @@ private struct AppPreviewWrapper: View {
 // 创建简化的预览数据容器
 private func createSimplePreviewContainer() -> ModelContainer {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Plant.self, WateringLog.self, configurations: config)
+    let container = try! ModelContainer(for: Plant.self, WateringLog.self, Location.self, configurations: config)
     let context = container.mainContext
+    
+    // 创建默认位置
+    LocationManager.createDefaultLocations(context: context)
     
     // 简化的示例数据
     createSamplePlant(context: context, name: "月季", species: "Rosa", location: "Balcony", days: 1, daysAgo: 1)
     createSamplePlant(context: context, name: "龟背竹", species: "Monstera", location: "Balcony", days: 7, daysAgo: 12)
-    createSamplePlant(context: context, name: "山茶花", species: "Camellia", location: "Reading Room", days: 3, daysAgo: 2)
-    createSamplePlant(context: context, name: "杜鹃花", species: "Rhododendron", location: "Dining Room", days: 5, daysAgo: 0)
+    createSamplePlant(context: context, name: "山茶花", species: "Camellia", location: "Living Room", days: 3, daysAgo: 2)
+    createSamplePlant(context: context, name: "杜鹃花", species: "Rhododendron", location: "Living Room", days: 5, daysAgo: 0)
     
     try? context.save()
     return container
