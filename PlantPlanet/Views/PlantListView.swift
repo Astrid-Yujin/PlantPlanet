@@ -474,13 +474,12 @@ private struct PlantListPreview: View {
         let container = try! ModelContainer(for: Plant.self, configurations: config)
         let context = container.mainContext
         
-        // 创建示例数据
+        // 创建示例数据 - 与 PlantApp 中的数据保持一致
         let plants = [
-            ("Rose", "Rosa rubiginosa", "Garden", WateringSchedule.days(3), 5),
-            ("Fern", "Nephrolepis", "Living Room", WateringSchedule.days(2), 2),
-            ("Succulent", "Echeveria", "Bedroom", WateringSchedule.days(5), 4),
-            ("Peace Lily", "Spathiphyllum", "Office", WateringSchedule.weekly([Weekday.monday, Weekday.thursday]), 4),
-            ("Snake Plant", "Sansevieria", "Bathroom", WateringSchedule.days(1), 4)
+            ("月季", "Rosa", "Balcony", WateringSchedule.days(2), 1),
+            ("龟背竹", "Monstera", "Balcony", WateringSchedule.days(7), 1),
+            ("山茶花", "Camellia", "Reading Room", WateringSchedule.days(3), 1),
+            ("杜鹃花", "Rhododendron", "Dining Room", WateringSchedule.days(5), 1)
         ]
         
         for (name, species, location, schedule, daysAgo) in plants {
@@ -488,7 +487,7 @@ private struct PlantListPreview: View {
             plant.photoFilenames = []
             
             if let date = Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date()) {
-                plant.wateringLogs.append(WateringLog(date: date, notes: "Sample"))
+                plant.wateringLogs.append(WateringLog(date: date, notes: "预览数据"))
             }
             
             context.insert(plant)
