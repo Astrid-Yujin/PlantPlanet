@@ -17,24 +17,9 @@ struct AddPlantView: View {
     @Query private var allLocations: [Location]
     @Query private var allPlants: [Plant]
     
-    // 按照和 LocationManagementView 相同的排序逻辑
+    // 使用 LocationManager 的统一排序方法
     private var sortedLocations: [Location] {
-        return allLocations.sorted { location1, location2 in
-            // First by starred status (starred first)
-            if location1.isStarred != location2.isStarred {
-                return location1.isStarred && !location2.isStarred
-            }
-            
-            // Then by plant count (higher count first)
-            let count1 = allPlants.filter { $0.location == location1.name }.count
-            let count2 = allPlants.filter { $0.location == location2.name }.count
-            if count1 != count2 {
-                return count1 > count2
-            }
-            
-            // Finally alphabetically (case insensitive)
-            return location1.name.localizedCaseInsensitiveCompare(location2.name) == .orderedAscending
-        }
+        return LocationManager.sortedLocations(allLocations)
     }
     
     @State private var name = ""
@@ -211,9 +196,9 @@ struct AddPlantView: View {
                 // 检查位置是否已存在
                 let existingLocation = allLocations.first { $0.name.lowercased() == finalLocation.lowercased() }
                 if existingLocation == nil {
-                    // 创建新位置并保存到数据库
+                    // 使用 LocationManager 创建新位置
                     let newLocation = Location(name: finalLocation)
-                    modelContext.insert(newLocation)
+                    LocationManager.addLocation(newLocation, context: modelContext)
                 }
             }
         } else if locationOptions.indices.contains(selectedLocationIndex) {

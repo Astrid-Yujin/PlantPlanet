@@ -32,17 +32,9 @@ struct EditPlantView: View {
     
     @State private var speciesOptions: [String] = ["Rose", "Hydrangea", "Pothos", "Azalea", "Camellia", "Other"]
     
-    // 按照和 LocationManagementView 相同的排序逻辑
+    // 使用 LocationManager 的统一排序方法
     private var sortedLocations: [Location] {
-        return allLocations.sorted { location1, location2 in
-            // First by starred status (starred first)
-            if location1.isStarred != location2.isStarred {
-                return location1.isStarred && !location2.isStarred
-            }
-            
-            // Then by creation date
-            return location1.createdAt < location2.createdAt
-        }
+        return LocationManager.sortedLocations(allLocations)
     }
     
     // 计算属性：位置选项
@@ -214,7 +206,7 @@ struct EditPlantView: View {
                 } else {
                     // 位置不存在，创建新位置
                     let newLocation = Location(name: plant.location)
-                    modelContext.insert(newLocation)
+                    LocationManager.addLocation(newLocation, context: modelContext)
                     // 选择"Add New"选项，并设置自定义位置
                     selectedLocationIndex = locationOptions.count - 1
                     customLocation = plant.location
@@ -262,9 +254,9 @@ struct EditPlantView: View {
                 // 检查位置是否已存在于数据库
                 let existingLocation = allLocations.first { $0.name.lowercased() == finalLocation.lowercased() }
                 if existingLocation == nil {
-                    // 创建新位置并保存到数据库
+                    // 使用 LocationManager 创建新位置
                     let newLocation = Location(name: finalLocation)
-                    modelContext.insert(newLocation)
+                    LocationManager.addLocation(newLocation, context: modelContext)
                 }
             }
         } else {
@@ -323,11 +315,20 @@ struct ExistingPhotosGrid: View {
 
 // MARK: - Preview
 #Preview {
-    EditPlantView(plant: Plant(
+    
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: Plant.self, Location.self, WateringLog.self, configurations: config)
+    let context = container.mainContext
+    
+    // 创建默认位置
+    LocationManager.createDefaultLocations(context: context)
+    try? context.save()
+    
+    return     EditPlantView(plant: Plant(
         name: "Test Plant",
         species: "Rose",
         location: "Balcony",
         wateringSchedule: .days(3)
     ))
-    .modelContainer(for: Plant.self, inMemory: true)
+        .modelContainer(container)
 }

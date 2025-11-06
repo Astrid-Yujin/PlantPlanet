@@ -44,12 +44,12 @@ final class Location {
 class LocationManager: ObservableObject {
     @Published var locations: [Location] = []
     
-    // 获取所有位置，按照星标优先，然后按创建时间排序
-    func getSortedLocations(with plants: [Plant]) -> [Location] {
+    // 静态方法：对任意位置数组进行标准排序
+    static func sortedLocations(_ locations: [Location]) -> [Location] {
         return locations.sorted { location1, location2 in
             // 首先按星标排序（星标的在前）
             if location1.isStarred != location2.isStarred {
-                return location1.isStarred
+                return location1.isStarred && !location2.isStarred
             }
             
             // 然后按创建时间排序（早创建的在前）
@@ -58,9 +58,8 @@ class LocationManager: ObservableObject {
     }
     
     // 添加新位置
-    func addLocation(_ location: Location, context: ModelContext) {
+    static func addLocation(_ location: Location, context: ModelContext) {
         context.insert(location)
-        locations.append(location)
         try? context.save()
     }
     
