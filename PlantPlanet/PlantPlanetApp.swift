@@ -39,10 +39,10 @@ private func createSimplePreviewContainer() -> ModelContainer {
     let context = container.mainContext
     
     // 简化的示例数据
-    createSamplePlant(context: context, name: "月季", species: "Rosa", location: "Balcony", days: 2, daysAgo: 1)
-    createSamplePlant(context: context, name: "龟背竹", species: "Monstera", location: "Balcony", days: 7, daysAgo: 1)
-    createSamplePlant(context: context, name: "山茶花", species: "Camellia", location: "Reading Room", days: 3, daysAgo: 1)
-    createSamplePlant(context: context, name: "杜鹃花", species: "Rhododendron", location: "Dining Room", days: 5, daysAgo: 1)
+    createSamplePlant(context: context, name: "月季", species: "Rosa", location: "Balcony", days: 1, daysAgo: 1)
+    createSamplePlant(context: context, name: "龟背竹", species: "Monstera", location: "Balcony", days: 7, daysAgo: 12)
+    createSamplePlant(context: context, name: "山茶花", species: "Camellia", location: "Reading Room", days: 3, daysAgo: 2)
+    createSamplePlant(context: context, name: "杜鹃花", species: "Rhododendron", location: "Dining Room", days: 5, daysAgo: 0)
     
     try? context.save()
     return container

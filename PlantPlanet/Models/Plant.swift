@@ -72,8 +72,8 @@ final class Plant {
      // 下次浇水日期
      var nextWateringDate: Date? {
          guard let lastDate = lastWateringDate else {
-             // 如果从未浇水，返回明天
-             return Calendar.current.date(byAdding: .day, value: 1, to: Date())
+             // 如果从未浇水，返回今天
+             return Date()
          }
          
          return wateringSchedule.calculateNextWateringDate(from: lastDate)
@@ -100,6 +100,12 @@ final class Plant {
          let calendar = Calendar.current
          let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: Date()), to: calendar.startOfDay(for: nextDate)).day
          return days
+     }
+     
+     // 今天是否已经浇过水
+     var wateredToday: Bool {
+         guard let lastDate = lastWateringDate else { return false }
+         return Calendar.current.isDateInToday(lastDate)
      }
     
     init(id: UUID = UUID(), 

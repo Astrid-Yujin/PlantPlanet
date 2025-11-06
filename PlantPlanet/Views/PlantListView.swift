@@ -64,8 +64,8 @@ struct PlantListView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        // 在 overdue 和 today 组显示左滑浇水功能
-                        if item.group == .overdue || item.group == .today {
+                        // 左滑浇水功能，但如果今天已经浇过水则不显示
+                        if !plant.wateredToday {
                             Button {
                                 waterPlant(plant)
                             } label: {
@@ -134,12 +134,15 @@ struct PlantListView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button {
-                            waterPlant(plant)
-                        } label: {
-                            Label("Water", systemImage: "drop.fill")
+                        // 如果今天没有浇过水，才显示左滑浇水功能
+                        if !plant.wateredToday {
+                            Button {
+                                waterPlant(plant)
+                            } label: {
+                                Label("Water", systemImage: "drop.fill")
+                            }
+                            .tint(.blue)
                         }
-                        .tint(.blue)
                     }
                 }
             }
@@ -349,28 +352,43 @@ struct PlantRowView: View {
                     .font(.headline)
                     .lineLimit(1)
                 
-                // 种类
-                Text(plant.species)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
+                if grouping == .wateringGroup {
+                    // wateringGroup模式：显示种类和浇水频率
+                    Text(plant.species)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "drop")
+                            .font(.caption2)
+                        Text(plant.wateringSchedule.shortDescription)
+                            .font(.caption)
+                    }
+                    .foregroundColor(.blue)
+                }
             }
             
             Spacer()
             
-            // 其他分组显示浇水状态（紧凑显示）
+            // 右侧信息
             VStack(alignment: .trailing, spacing: 6) {
-                // 浇水频率
-                HStack(spacing: 4) {
-                    Image(systemName: "drop")
-                        .font(.caption2)
-                    Text(plant.wateringSchedule.shortDescription)
-                        .font(.caption)
-                }
-                .foregroundColor(.green)
-            
                 if grouping == .wateringGroup {
-                    // 状态图标和文字
+                    // wateringGroup模式：显示浇水相关信息
+                    
+                    // 上次浇水日期
+                    if let lastDate = plant.lastWateringDate {
+                        HStack(spacing: 4) {
+                            Text("Last:")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Text(formatDate(lastDate))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    // 状态图标和文字（包含了下次浇水的时间信息）
                     HStack(spacing: 4) {
                         Image(systemName: statusIcon)
                             .font(.caption2)
@@ -379,15 +397,20 @@ struct PlantRowView: View {
                     }
                     .foregroundColor(statusColor)
                     
-                    // 下次浇水日期
-                    if let nextDate = plant.nextWateringDate {
-                        Text(formatDate(nextDate))
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    
                 } else {
-                    EmptyView()
+                    // 其他分组模式：显示种类和浇水频率
+                    Text(plant.species)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "drop")
+                            .font(.caption2)
+                        Text(plant.wateringSchedule.shortDescription)
+                            .font(.caption)
+                    }
+                    .foregroundColor(.blue)
                 }
             }
         }
@@ -476,10 +499,10 @@ private struct PlantListPreview: View {
         
         // 创建示例数据 - 与 PlantApp 中的数据保持一致
         let plants = [
-            ("月季", "Rosa", "Balcony", WateringSchedule.days(2), 1),
-            ("龟背竹", "Monstera", "Balcony", WateringSchedule.days(7), 1),
-            ("山茶花", "Camellia", "Reading Room", WateringSchedule.days(3), 1),
-            ("杜鹃花", "Rhododendron", "Dining Room", WateringSchedule.days(5), 1)
+            ("月季", "Rosa", "Balcony", WateringSchedule.days(1), 1),
+            ("龟背竹", "Monstera", "Balcony", WateringSchedule.days(7), 12),
+            ("山茶花", "Camellia", "Reading Room", WateringSchedule.days(3), 2),
+            ("杜鹃花", "Rhododendron", "Dining Room", WateringSchedule.days(5), 0)
         ]
         
         for (name, species, location, schedule, daysAgo) in plants {
