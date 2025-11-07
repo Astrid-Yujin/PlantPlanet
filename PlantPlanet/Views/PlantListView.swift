@@ -13,7 +13,7 @@ struct PlantListView: View {
     @Query(sort: \Plant.createdAt, order: .reverse) private var plants: [Plant]
     
     @State private var showingAddSheet = false
-    @State private var showingLocationManagement = false
+    @State private var showingSettings = false
     @State private var grouping: GroupingType = .wateringGroup  // 默认改为 wateringGroup
     
     @State private var selectedPlant: Plant?
@@ -43,9 +43,9 @@ struct PlantListView: View {
                         }
                         
                         Button {
-                            showingLocationManagement = true
+                            showingSettings = true
                         } label: {
-                            Label("Manage Locations", systemImage: "location.circle")
+                            Label("Settings", systemImage: "gearshape")
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
@@ -55,8 +55,8 @@ struct PlantListView: View {
             .sheet(isPresented: $showingAddSheet) {
                 PlantFormView(mode: .add)
             }
-            .sheet(isPresented: $showingLocationManagement) {
-                LocationManagementView()
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
             }
             .navigationDestination(item: $selectedPlant) { plant in
                 PlantDetailView(plant: plant)

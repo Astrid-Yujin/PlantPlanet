@@ -38,6 +38,7 @@ struct PlantFormView: View {
     @Environment(\.dismiss) var dismiss
     
     @Query private var allLocations: [Location]
+    @Query private var allSpecies: [Species]
     @Query private var allPlants: [Plant]
     
     // 使用 LocationManager 的统一排序方法
@@ -47,8 +48,7 @@ struct PlantFormView: View {
     
     // 表单状态
     @State private var name = ""
-    @State private var selectedSpeciesIndex = 0
-    @State private var customSpecies = ""
+    @State private var species = ""
     @State private var selectedLocationIndex = 0
     @State private var customLocation = ""
     @State private var wateringSchedule = WateringSchedule.days(3)
@@ -57,8 +57,7 @@ struct PlantFormView: View {
     @State private var selectedPhotos: [PhotosPickerItem] = []
     @State private var photoImages: [UIImage] = []
     @State private var showingDeleteAlert = false
-    
-    @State private var speciesOptions: [String] = ["Rose", "Hydrangea", "Pothos", "Azalea", "Camellia", "Other"]
+    @State private var showingSpeciesPicker = false
     
     // 计算属性：位置选项
     private var locationOptions: [String] {
@@ -78,14 +77,93 @@ struct PlantFormView: View {
     var body: some View {
         NavigationView {
             Form {
-                basicInfoSection
-                wateringSection
-                photosSection
-                notesSection
+                // Plant Information Section
+                Section(header: Text("Plant Information")) {
+                    TextField("Name (Required)", text: $name)
+                    
+                    // 品种选择按钮
+                    Button {
+                        showingSpeciesPicker = true
+                    } label: {
+                        HStack {
+                            Text("Species")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if species.isEmpty {
+                                Text("Select species")
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text(species)
+                                    .foregroundColor(.secondary)
+                            }
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                    }
+                    
+                    Picker("Location", selection: $selectedLocationIndex) {
+                        ForEach(0..<locationOptions.count, id: \.self) { index in
+                            Text(locationOptions[index]).tag(index)
+                        }
+                    }
+                    
+                    if locationOptions.indices.contains(selectedLocationIndex) && locationOptions[selectedLocationIndex] == "Add New" {
+                        TextField("Enter new location", text: $customLocation)
+                    }
+                }
+                
+                // Watering Schedule Section
+                Section(header: Text("Watering Schedule")) {
+                    WateringScheduleEditor(schedule: $wateringSchedule)
+                }
+                
+                // Photos Section
+                Section(header: Text("Photos \(photosHeaderText)")) {
+                    // 显示现有照片（仅编辑模式）
+                    if case .edit(let plant) = mode, !plant.photoFilenames.isEmpty {
+                        ExistingPhotosGrid(plant: plant)
+                    }
+                    
+                    PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 10, matching: .images) {
+                        Label(photoButtonText, systemImage: photoButtonIcon)
+                    }
+                    .onChange(of: selectedPhotos) { oldValue, newValue in
+                        loadPhotos(from: newValue)
+                    }
+                    
+                    // 显示新选择的照片
+                    if !photoImages.isEmpty {
+                        PhotoPreviewGrid(images: $photoImages, selectedPhotos: $selectedPhotos)
+                    }
+                }
+                
+                // Notes Section
+                Section(header: Text("Notes (Optional)")) {
+                    TextEditor(text: $notes)
+                        .frame(height: 100)
+                }
                 
                 // 只在编辑模式下显示删除按钮
                 if case .edit = mode {
-                    deleteSection
+                    Section {
+                        Button(role: .destructive) {
+                            showingDeleteAlert = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "trash.fill")
+                                Text("Delete Plant")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red.opacity(0.1))
+                            .foregroundColor(.red)
+                            .cornerRadius(12)
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
+                    }
                 }
             }
             .navigationTitle(mode.title)
@@ -101,9 +179,15 @@ struct PlantFormView: View {
                     .disabled(!isValid)
                 }
             }
+            }
             .onAppear {
-                ensureDefaultLocationsExist()
+                ensureDefaultDataExist()
                 initializeFields()
+            }
+            .sheet(isPresented: $showingSpeciesPicker) {
+                NavigationStack {
+                    SpeciesPickerView(selectedSpecies: $species)
+                }
             }
             .alert("Delete Plant", isPresented: $showingDeleteAlert) {
                 Button("Cancel", role: .cancel) { }
@@ -116,90 +200,6 @@ struct PlantFormView: View {
                 }
             }
         }
-    }
-    
-    // MARK: - Sections
-    
-    private var basicInfoSection: some View {
-        Section(header: Text("Plant Information")) {
-            TextField("Name (Required)", text: $name)
-            
-            Picker("Species", selection: $selectedSpeciesIndex) {
-                ForEach(0..<speciesOptions.count, id: \.self) { index in
-                    Text(speciesOptions[index]).tag(index)
-                }
-            }
-            
-            if speciesOptions.indices.contains(selectedSpeciesIndex) && speciesOptions[selectedSpeciesIndex] == "Other" {
-                TextField("Enter custom species", text: $customSpecies)
-            }
-            
-            Picker("Location", selection: $selectedLocationIndex) {
-                ForEach(0..<locationOptions.count, id: \.self) { index in
-                    Text(locationOptions[index]).tag(index)
-                }
-            }
-            
-            if locationOptions.indices.contains(selectedLocationIndex) && locationOptions[selectedLocationIndex] == "Add New" {
-                TextField("Enter new location", text: $customLocation)
-            }
-        }
-    }
-    
-    private var wateringSection: some View {
-        Section(header: Text("Watering Schedule")) {
-            WateringScheduleEditor(schedule: $wateringSchedule)
-        }
-    }
-    
-    private var photosSection: some View {
-        Section(header: Text("Photos \(photosHeaderText)")) {
-            // 显示现有照片（仅编辑模式）
-            if case .edit(let plant) = mode, !plant.photoFilenames.isEmpty {
-                ExistingPhotosGrid(plant: plant)
-            }
-            
-            PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 10, matching: .images) {
-                Label(photoButtonText, systemImage: photoButtonIcon)
-            }
-            .onChange(of: selectedPhotos) { oldValue, newValue in
-                loadPhotos(from: newValue)
-            }
-            
-            // 显示新选择的照片
-            if !photoImages.isEmpty {
-                PhotoPreviewGrid(images: $photoImages, selectedPhotos: $selectedPhotos)
-            }
-        }
-    }
-    
-    private var notesSection: some View {
-        Section(header: Text("Notes (Optional)")) {
-            TextEditor(text: $notes)
-                .frame(height: 100)
-        }
-    }
-    
-    private var deleteSection: some View {
-        Section {
-            Button(role: .destructive) {
-                showingDeleteAlert = true
-            } label: {
-                HStack {
-                    Image(systemName: "trash.fill")
-                    Text("Delete Plant")
-                        .fontWeight(.semibold)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.red.opacity(0.1))
-                .foregroundColor(.red)
-                .cornerRadius(12)
-            }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets())
-        }
-    }
     
     // MARK: - Computed Properties
     
@@ -233,10 +233,7 @@ struct PlantFormView: View {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedName.isEmpty { return false }
         
-        if speciesOptions.indices.contains(selectedSpeciesIndex) && speciesOptions[selectedSpeciesIndex] == "Other" {
-            let trimmedSpecies = customSpecies.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmedSpecies.isEmpty { return false }
-        }
+        if species.isEmpty { return false }
         
         if locationOptions.indices.contains(selectedLocationIndex) && locationOptions[selectedLocationIndex] == "Add New" {
             let trimmedLocation = customLocation.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -259,9 +256,12 @@ struct PlantFormView: View {
     
     // MARK: - Helper Methods
     
-    private func ensureDefaultLocationsExist() {
+    private func ensureDefaultDataExist() {
         if allLocations.isEmpty {
             LocationManager.createDefaultLocations(context: modelContext)
+        }
+        if allSpecies.isEmpty {
+            SpeciesManager.createDefaultSpecies(context: modelContext)
         }
     }
     
@@ -273,22 +273,9 @@ struct PlantFormView: View {
         case .edit(let plant):
             // 编辑模式：从植物对象初始化字段
             name = plant.name
+            species = plant.species
             wateringSchedule = plant.wateringSchedule
             notes = plant.notes
-            
-            // 设置种类
-            if let index = speciesOptions.firstIndex(of: plant.species) {
-                selectedSpeciesIndex = index
-            } else {
-                if !plant.species.isEmpty && plant.species != "Unknown" {
-                    if !speciesOptions.contains(plant.species) {
-                        speciesOptions.insert(plant.species, at: speciesOptions.count - 1)
-                    }
-                    selectedSpeciesIndex = speciesOptions.firstIndex(of: plant.species) ?? 0
-                } else {
-                    selectedSpeciesIndex = speciesOptions.count - 1
-                }
-            }
             
             // 设置位置
             if let index = locationOptions.firstIndex(of: plant.location) {
@@ -341,7 +328,6 @@ struct PlantFormView: View {
     }
     
     private func saveNewPlant() {
-        let finalSpecies = getFinalSpecies()
         let finalLocation = getFinalLocation()
         
         // 保存照片
@@ -352,9 +338,12 @@ struct PlantFormView: View {
             }
         }
         
+        // 创建新品种（如果不存在）
+        ensureSpeciesExists(species)
+        
         let newPlant = Plant(
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            species: finalSpecies.isEmpty ? "Unknown" : finalSpecies,
+            species: species.isEmpty ? "Unknown" : species,
             location: finalLocation.isEmpty ? "Unknown" : finalLocation,
             photoFilenames: savedPhotoFilenames,
             notes: notes,
@@ -366,24 +355,13 @@ struct PlantFormView: View {
     
     private func updateExistingPlant(_ plant: Plant) {
         plant.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        plant.species = species
         plant.wateringSchedule = wateringSchedule
         plant.notes = notes
-        plant.species = getFinalSpecies()
         plant.location = getFinalLocation()
-    }
-    
-    private func getFinalSpecies() -> String {
-        if speciesOptions.indices.contains(selectedSpeciesIndex) && speciesOptions[selectedSpeciesIndex] == "Other" {
-            let finalSpecies = customSpecies.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !finalSpecies.isEmpty && !speciesOptions.contains(finalSpecies) {
-                speciesOptions.insert(finalSpecies, at: speciesOptions.count - 1)
-            }
-            return finalSpecies
-        } else if speciesOptions.indices.contains(selectedSpeciesIndex) {
-            return speciesOptions[selectedSpeciesIndex]
-        } else {
-            return "Unknown"
-        }
+        
+        // 创建新品种（如果不存在）
+        ensureSpeciesExists(species)
     }
     
     private func getFinalLocation() -> String {
@@ -403,6 +381,18 @@ struct PlantFormView: View {
             return locationOptions[selectedLocationIndex]
         } else {
             return "Unknown"
+        }
+    }
+    
+    private func ensureSpeciesExists(_ speciesName: String) {
+        guard !speciesName.isEmpty else { return }
+        
+        // 检查品种是否已存在
+        let existingSpecies = allSpecies.first { $0.name.lowercased() == speciesName.lowercased() }
+        if existingSpecies == nil {
+            // 用户新增的品种自动归类到自定义分组
+            let newSpecies = Species(name: speciesName, group: SpeciesGroup.custom.rawValue, isUserDefined: true)
+            SpeciesManager.addSpecies(newSpecies, context: modelContext)
         }
     }
     
@@ -492,11 +482,12 @@ struct ExistingPhotosGrid: View {
 // MARK: - Preview
 #Preview("Add Plant") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Plant.self, Location.self, WateringLog.self, configurations: config)
+    let container = try! ModelContainer(for: Plant.self, Location.self, WateringLog.self, Species.self, configurations: config)
     let context = container.mainContext
     
-    // 创建默认位置
+    // 创建默认数据
     LocationManager.createDefaultLocations(context: context)
+    SpeciesManager.createDefaultSpecies(context: context)
     try? context.save()
     
     return PlantFormView(mode: .add)
@@ -505,11 +496,12 @@ struct ExistingPhotosGrid: View {
 
 #Preview("Edit Plant") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Plant.self, Location.self, WateringLog.self, configurations: config)
+    let container = try! ModelContainer(for: Plant.self, Location.self, WateringLog.self, Species.self, configurations: config)
     let context = container.mainContext
     
-    // 创建默认位置
+    // 创建默认数据
     LocationManager.createDefaultLocations(context: context)
+    SpeciesManager.createDefaultSpecies(context: context)
     
     let testPlant = Plant(
         name: "Test Plant",

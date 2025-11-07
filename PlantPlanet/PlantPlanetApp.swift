@@ -14,7 +14,7 @@ struct PlantApp: App {
         WindowGroup {
             PlantListView()
         }
-        .modelContainer(for: [Plant.self, WateringLog.self, Location.self])
+        .modelContainer(for: [Plant.self, WateringLog.self, Location.self, Species.self])
     }
 }
 
@@ -35,11 +35,12 @@ private struct AppPreviewWrapper: View {
 // 创建简化的预览数据容器
 private func createSimplePreviewContainer() -> ModelContainer {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Plant.self, WateringLog.self, Location.self, configurations: config)
+    let container = try! ModelContainer(for: Plant.self, WateringLog.self, Location.self, Species.self, configurations: config)
     let context = container.mainContext
     
-    // 创建默认位置
+    // 创建默认位置和品种
     LocationManager.createDefaultLocations(context: context)
+    SpeciesManager.createDefaultSpecies(context: context)
     
     // 简化的示例数据
     createSamplePlant(context: context, name: "月季", species: "Rosa", location: "Balcony", days: 1, daysAgo: 1)
